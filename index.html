@@ -332,6 +332,26 @@ button i{pointer-events:none}
 
 .tab-panel a{color:var(--accent);text-decoration:underline}
 .tab-panel a:hover{color:var(--text)}
+.boost-color-settings{display:flex;flex-direction:column;gap:8px;max-width:420px}
+.boost-color-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.boost-color-row label{min-width:110px;font-size:.85rem;color:var(--muted)}
+.boost-color-row input[type="color"]{width:42px;height:28px;border:1px solid var(--border);border-radius:4px;background:var(--panel);padding:0;cursor:pointer}
+.boost-color-swatch{width:16px;height:16px;border-radius:3px;border:1px solid var(--border)}
+.settings-subtabs{display:flex;gap:6px;margin-bottom:14px;flex-wrap:wrap}
+.settings-subtab{background:var(--panel);border:1px solid var(--border);color:var(--muted);padding:6px 14px;border-radius:6px;cursor:pointer;font-weight:600;font-size:.84rem}
+.settings-subtab:hover{color:var(--text)}
+.settings-subtab.active{background:var(--panel2);color:var(--accent);border-color:var(--accent)}
+.settings-pane{display:none}
+.settings-pane.active{display:block}
+.boost-color-row .hue-swatch{width:22px;height:22px;border-radius:4px;border:2px solid transparent;cursor:pointer;padding:0}
+.boost-color-row .hue-swatch.active{border-color:#fff;box-shadow:0 0 0 1px #fff}
+.version-history-scroll{scrollbar-width:thin;scrollbar-color:var(--border) var(--panel)}
+.version-history-scroll::-webkit-scrollbar{width:8px}
+.version-history-scroll::-webkit-scrollbar-thumb{background:var(--border);border-radius:4px}
+.export-progress-bar-wrap{height:14px;background:var(--panel);border:1px solid var(--border);border-radius:8px;overflow:hidden;margin:12px 0 8px}
+.export-progress-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--accent-dim),var(--accent));transition:width .12s linear;border-radius:7px}
+.export-progress-pct{font-family:ui-monospace,monospace;font-size:.85rem;color:var(--green)}
+#exportProgressModal{z-index:10050}
 </style>
 </head>
 <body>
@@ -499,14 +519,17 @@ button i{pointer-events:none}
       </div>
     </div>
   </div>
-  <div class="tools-row">
+  <div class="tools-row" id="patRateTools">
     <label>Rate</label>
     <select id="rateMode">
       <option value="mult">× Multiplier</option>
       <option value="note">Note (scale)</option>
+      <option value="single">Single hit</option>
     </select>
     <span id="rateMultWrap" style="display:inline-flex;align-items:center;gap:6px">
       <input type="number" id="rateInput" min="0" max="9999" value="1" step="1" style="width:64px">
+      <span class="hint-sm" style="margin:0">/</span>
+      <input type="number" id="rateDenom" min="1" max="9999" value="1" step="1" title="Denominator (≥1)" style="width:52px">
     </span>
     <span id="rateNoteWrap" style="display:none;align-items:center;gap:6px">
       <select id="rateNote"></select>
@@ -531,7 +554,18 @@ button i{pointer-events:none}
     <button class="btn-dim btn-sm" id="deleteBlock" type="button">Delete block</button>
   </div>
   <div class="tools-row" id="patBoostTools">
-    <label class="check-label" style="margin:0"><input type="checkbox" id="patBoostScaleQuant"> Scale quantised</label>
+    <label class="check-label" style="margin:0" id="patBoostScaleQuantWrap"><input type="checkbox" id="patBoostScaleQuant"> Scale quantised</label>
+    <span id="patBoostTimeQuantWrap" style="display:none;align-items:center;gap:6px">
+      <label>Time quant</label>
+      <select id="patBoostTimeQuant" title="Sweep step quantisation">
+        <option value="0">Continuous</option>
+        <option value="0.25">/4 step</option>
+        <option value="0.5">/2 step</option>
+        <option value="1">×1 step</option>
+        <option value="2">×2 step</option>
+        <option value="4">×4 step</option>
+      </select>
+    </span>
     <label>Boost mode</label>
     <select id="patBoostMode">
       <option value="constant">Constant</option>
@@ -544,6 +578,8 @@ button i{pointer-events:none}
     </select>
     <label id="patBoostALabel">×</label>
     <input type="number" id="patBoostRateA" min="0" max="9999" value="1" step="1" style="width:52px">
+    <span class="hint-sm" style="margin:0">/</span>
+    <input type="number" id="patBoostDenomA" min="1" max="9999" value="1" step="1" title="Denominator (≥1)" style="width:48px">
     <span id="patBoostBWrap" style="display:none;align-items:center;gap:7px">
       <label>→</label>
       <input type="number" id="patBoostRateB" min="0" max="9999" value="2" step="1" style="width:52px">
@@ -559,8 +595,6 @@ button i{pointer-events:none}
       </select>
     </span>
     <button class="btn-dim btn-sm" id="addPatBoostBtn" type="button"><i class="fa-solid fa-plus"></i> Boost</button>
-    <button class="btn-dim btn-sm" id="patAddBoostTrack2" type="button"><i class="fa-solid fa-plus"></i> Boost track</button>
-    <select id="addPatBoostTrackKey" title="Type of new pattern boost track"></select>
   </div>
   <div class="status" id="patStatus"></div>
   <p class="hint-sm">Select a block, then toggle A–D to assign groups. Rate ×0 = silence. Click a drum track twice to place a block.</p>
@@ -637,6 +671,8 @@ button i{pointer-events:none}
     </select>
     <label id="boostALabel">×</label>
     <input type="number" id="boostRateA" min="0" max="9999" value="1" step="1" style="width:52px">
+    <span class="hint-sm" style="margin:0">/</span>
+    <input type="number" id="boostDenomA" min="1" max="9999" value="1" step="1" title="Denominator (≥1)" style="width:48px">
     <span id="boostBWrap" style="display:none;align-items:center;gap:7px">
       <label>→</label>
       <input type="number" id="boostRateB" min="0" max="9999" value="2" step="1" style="width:52px">
@@ -657,14 +693,23 @@ button i{pointer-events:none}
         <option value="32">×32</option>
       </select>
     </span>
-    <label class="check-label" style="margin:0"><input type="checkbox" id="boostScaleQuant"> Scale quantised</label>
+    <label class="check-label" style="margin:0" id="boostScaleQuantWrap"><input type="checkbox" id="boostScaleQuant"> Scale quantised</label>
+    <span id="boostTimeQuantWrap" style="display:none;align-items:center;gap:6px">
+      <label>Time quant</label>
+      <select id="boostTimeQuant" title="Sweep step quantisation">
+        <option value="0">Continuous</option>
+        <option value="0.25">/4 step</option>
+        <option value="0.5">/2 step</option>
+        <option value="1">×1 step</option>
+        <option value="2">×2 step</option>
+        <option value="4">×4 step</option>
+      </select>
+    </span>
     <label>Slew in</label>
     <input type="number" id="boostSlewIn" min="0" max="512" value="0" step="1" style="width:48px" title="Clicks to ramp from ×1">
     <label>Slew out</label>
     <input type="number" id="boostSlewOut" min="0" max="512" value="0" step="1" style="width:48px" title="Clicks to ramp back to ×1">
     <button class="btn-dim btn-sm" id="addBoostBtn" type="button"><i class="fa-solid fa-plus"></i> Boost</button>
-    <button class="btn-dim btn-sm" id="addBoostTrackBtn" type="button"><i class="fa-solid fa-plus"></i> Boost track</button>
-    <select id="addBoostTrackKey" title="Type of new boost track"></select>
     <span id="volTools" style="display:none;align-items:center;gap:7px">
       <label>Vol %</label>
       <input type="number" id="volInput" min="0" max="100" value="100" step="1" style="width:52px">
@@ -769,6 +814,11 @@ button i{pointer-events:none}
 
 <div class="tab-panel" id="tab-settings">
 <div class="card settings-body">
+  <div class="settings-subtabs">
+    <button type="button" class="settings-subtab active" data-settings-tab="song">Song</button>
+    <button type="button" class="settings-subtab" data-settings-tab="appearance">Appearance</button>
+  </div>
+  <div class="settings-pane active" id="settingsPaneSong">
   <h2 style="font-size:1rem;color:var(--accent);margin:0 0 8px">Tempo &amp; backing</h2>
   <div class="row" style="align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
     <label for="baseBpm">Base BPM</label>
@@ -788,6 +838,7 @@ button i{pointer-events:none}
     <select id="settingsScale"></select>
     <label for="settingsScaleRoot">Root</label>
     <select id="settingsScaleRoot"></select>
+    <button class="btn-dim btn-sm" id="detectScaleBtn" type="button" style="display:none" title="Estimate major/minor key from the backing track"><i class="fa-solid fa-music"></i> Detect scale</button>
   </div>
   <p class="hint-sm" id="settingsScaleDesc" style="margin-bottom:16px"></p>
   <h2 style="font-size:1rem;color:var(--accent);margin:0 0 8px">Audio</h2>
@@ -801,9 +852,15 @@ button i{pointer-events:none}
     </select>
     <span class="hint-sm" id="settingsSampleRateActual"></span>
   </div>
-  <p class="hint-sm" style="margin-top:-8px;margin-bottom:18px">Changing sample rate restarts the audio engine (playback stops). Browsers may only support some rates.</p>
+  <p class="hint-sm" style="margin-top:-8px;margin-bottom:8px">Changing sample rate restarts the audio engine (playback stops). Browsers may only support some rates.</p>
+  </div>
+  <div class="settings-pane" id="settingsPaneAppearance" style="display:none">
   <h2 style="font-size:1rem;color:var(--accent);margin:0 0 8px">Colour schemes</h2>
   <div class="theme-grid" id="themeGrid"></div>
+  <h2 style="font-size:1rem;color:var(--accent);margin:18px 0 8px">Boost track colours</h2>
+  <p class="hint-sm" style="margin-bottom:10px">Same 16-colour palette as patterns and drums. Drum-specific boosts still use each drum&apos;s colour.</p>
+  <div id="boostColorSettings" class="boost-color-settings"></div>
+  </div>
 </div>
 </div>
 
@@ -822,10 +879,49 @@ button i{pointer-events:none}
     <li><a href="https://extratoneregeneration.bandcamp.com/" target="_blank" rel="noopener noreferrer">Extratone Regeneration — Bandcamp</a></li>
     <li><a href="https://discord.gg/MP8uTqfPTb" target="_blank" rel="noopener noreferrer">Extratone Discord</a> <span class="hint-sm">(discord.gg/MP8uTqfPTb)</span></li>
   </ul>
+  <h2 style="font-size:1rem;color:var(--accent);margin:22px 0 8px">Version history</h2>
+  <div class="version-history-scroll" style="max-width:52rem;max-height:220px;overflow-y:auto;line-height:1.55;padding:10px 12px;border:1px solid var(--border);border-radius:8px;background:var(--panel)">
+    <div style="margin-bottom:14px">
+      <div style="font-weight:700;color:var(--text)">19/11/2026</div>
+      <ul style="margin:6px 0 0;padding-left:1.2rem;color:var(--muted)">
+        <li>Rate denominators on drum segments and boosts</li>
+        <li>Compose zoom down to 1%</li>
+        <li>Structure booster (pattern read rate / looping; no scale quantise)</li>
+        <li>Single-hit drum segment mode (fixed triggering)</li>
+        <li>Sweep boost time quantisation (stairs: /4–×4)</li>
+        <li>Scale quantisation and major/minor scale tools</li>
+        <li>Boost track colours from the shared 16-colour palette</li>
+        <li>Settings split into Song and Appearance</li>
+        <li>Pattern boost / duplicate / octave 0 fixes</li>
+        <li>Info tab, branding, and this version history</li>
+      </ul>
+    </div>
+    <div style="margin-bottom:4px">
+      <div style="font-weight:700;color:var(--text)">12/11/2026</div>
+      <ul style="margin:6px 0 0;padding-left:1.2rem;color:var(--muted)">
+        <li>Initial release</li>
+      </ul>
+    </div>
+  </div>
 </div>
 </div>
 
 
+
+<div class="ui-modal-overlay" id="exportProgressModal" style="display:none;align-items:center;justify-content:center">
+  <div class="ui-modal" style="max-width:420px;width:92%">
+    <h3 id="exportProgressTitle">Exporting…</h3>
+    <p id="exportProgressMsg" class="hint-sm" style="margin:0 0 4px;color:var(--muted)">Preparing render…</p>
+    <div class="export-progress-bar-wrap"><div class="export-progress-bar" id="exportProgressBar"></div></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px">
+      <span class="hint-sm" id="exportProgressDetail" style="margin:0">0%</span>
+      <span class="export-progress-pct" id="exportProgressPct">0%</span>
+    </div>
+    <div class="ui-modal-actions">
+      <button class="btn-dim" type="button" id="exportProgressCancel">Cancel</button>
+    </div>
+  </div>
+</div>
 <div class="ui-modal-overlay" id="uiModal">
   <div class="ui-modal">
     <h3 id="uiModalTitle">Confirm</h3>
@@ -849,6 +945,7 @@ button i{pointer-events:none}
         <option value="group">Group</option>
         <option value="drum">Drum</option>
         <option value="meta">Meta (FM wave boosts)</option>
+        <option value="structure" id="boostTrackStructureOpt">Structure (pattern read rate)</option>
       </select>
     </div>
     <div class="row" id="boostTrackGroupRow" style="display:none;margin-bottom:10px">
@@ -927,7 +1024,87 @@ const THEMES={
   slut:{name:'Slut',bg:'#14020c',panel:'#1c0614',panel2:'#2a0c1c',border:'#5a1840',accent:'#ff1a9e',accentDim:'#b00858',text:'#ffe6f4',muted:'#a86888',green:'#ff7ec8',blue:'#ff69b4',yellow:'#ff9ad5',purple:'#ff40c8'},
   joker:{name:'Joker',bg:'#060a08',panel:'#0c1410',panel2:'#14201a',border:'#2a4a38',accent:'#9b5cff',accentDim:'#5a28a0',text:'#e8ffe8',muted:'#6a8a78',green:'#39ff14',blue:'#7dffb0',yellow:'#c4ff4a',purple:'#b388ff'}
 };
+
 let currentTheme='blood';
+const DEFAULT_BOOST_COLORS={
+  total:'#c4922a',
+  meta:'#ffcc66',
+  structure:'#40e0c0',
+  A:'#7a50c8',
+  B:'#9060e0',
+  C:'#a878f0',
+  D:'#c090ff'
+};
+const BOOST_COLOR_LABELS={total:'Total',meta:'Meta FM',structure:'Structure',A:'Group A',B:'Group B',C:'Group C',D:'Group D'};
+let boostColors=Object.assign({},DEFAULT_BOOST_COLORS);
+function boostSemanticColor(key){
+  if(key&&boostColors[key])return boostColors[key];
+  if(typeof drumById==='function'&&drumById(key))return drumColor(key);
+  return '#888888';
+}
+function boostBlockBackground(key){
+  const col=boostSemanticColor(key);
+  // darker mix for gradient start
+  return 'linear-gradient(135deg,'+col+'99,'+col+')';
+}
+function applyBoostColorsToCSS(){
+  // optional CSS vars for blocks
+  const r=document.documentElement;
+  for(const k of Object.keys(DEFAULT_BOOST_COLORS)){
+    r.style.setProperty('--boost-'+k, boostColors[k]||DEFAULT_BOOST_COLORS[k]);
+  }
+}
+function buildBoostColorSettings(){
+  const host=document.getElementById('boostColorSettings');
+  if(!host)return;
+  host.innerHTML='';
+  const palette=(typeof HUES!=='undefined'&&HUES.length)?HUES:(typeof DRUM_HUES!=='undefined'?DRUM_HUES:Object.values(DEFAULT_BOOST_COLORS));
+  for(const key of Object.keys(DEFAULT_BOOST_COLORS)){
+    const row=document.createElement('div');
+    row.className='boost-color-row';
+    const lab=document.createElement('label');
+    lab.textContent=BOOST_COLOR_LABELS[key]||key;
+    row.appendChild(lab);
+    const wrap=document.createElement('div');
+    wrap.style.display='flex';wrap.style.flexWrap='wrap';wrap.style.gap='4px';
+    const cur=boostColors[key]||DEFAULT_BOOST_COLORS[key];
+    palette.forEach((hex,idx)=>{
+      const s=document.createElement('button');
+      s.type='button';s.className='hue-swatch'+(hex.toLowerCase()===String(cur).toLowerCase()?' active':'');
+      s.style.background=hex;s.title=hex;
+      s.addEventListener('click',()=>{
+        boostColors[key]=hex;
+        try{localStorage.setItem('muttontone-boost-colors',JSON.stringify(boostColors))}catch(_){}
+        applyBoostColorsToCSS();
+        buildBoostColorSettings();
+        if(typeof renderSong==='function')renderSong();
+        if(typeof renderPatternTracks==='function')renderPatternTracks();
+        if(typeof rebuildBoostTrackDOM==='function')rebuildBoostTrackDOM();
+        if(typeof rebuildPatBoostTrackDOM==='function')rebuildPatBoostTrackDOM();
+      });
+      wrap.appendChild(s);
+    });
+    row.appendChild(wrap);
+    host.appendChild(row);
+  }
+}
+function loadBoostColors(){
+  try{
+    const raw=localStorage.getItem('muttontone-boost-colors');
+    if(raw){
+      const o=JSON.parse(raw);
+      if(o&&typeof o==='object'){
+        for(const k of Object.keys(DEFAULT_BOOST_COLORS)){
+          if(typeof o[k]==='string'&&/^#?[0-9a-fA-F]{6}$/.test(o[k].replace(/^#/,''))){
+            boostColors[k]=o[k].startsWith('#')?o[k]:('#'+o[k]);
+          }
+        }
+      }
+    }
+  }catch(_){}
+  applyBoostColorsToCSS();
+}
+
 function applyTheme(id){
   const t=THEMES[id]||THEMES.blood;
   currentTheme=id;
@@ -1116,7 +1293,13 @@ function describeCurrentScale(){
 }
 
 function midiToHz(midi){return 440*Math.pow(2,(midi-69)/12)}
-function noteToMidi(pc, octave){return (Math.max(0,Math.min(8,+octave||4))+1)*12+(+pc||0)}
+function parseOctaveVal(v, def){
+  if(def==null)def=4;
+  const n=(typeof v==='number')?v:parseInt(v,10);
+  if(!Number.isFinite(n))return def;
+  return Math.max(0,Math.min(8,n));
+}
+function noteToMidi(pc, octave){return (parseOctaveVal(octave,4)+1)*12+(+pc||0)}
 function noteToHz(pc, octave){return midiToHz(noteToMidi(pc,octave))}
 function quantizeHzToScale(hz){
   if(!(hz>0))return hz;
@@ -1142,12 +1325,14 @@ function quantizeBpmToScale(bpm){
 }
 function blockRateMult(b){
   if(!b)return 1;
+  if(b.rateMode==='single')return 0;
   if(b.rateMode==='note'){
     const hz=noteToHz(b.notePc!=null?b.notePc:0, b.octave!=null?b.octave:4);
     const base=typeof getBpm==='function'?Math.max(1e-6,getBpm()):180;
     return (hz*60)/base;
   }
-  return b.rate!=null?+b.rate:1;
+  const den=Math.max(1,Math.round(+b.rateDenom)||1);
+  return (b.rate!=null?+b.rate:1)/den;
 }
 function anyScaleQuantAt(pat,inst,groups,localT,useSong,songOffset){
   // true if any active boost covering this time has scaleQuant
@@ -1574,8 +1759,8 @@ function restoreSnapshot(snap){
   });
   selectedPat.clear();selectedSongItems.clear();
   refreshPatternSelect();rebuildDrumTracksDOM();renderDrumsUI();renderPatternTracks();renderSong();updateSongMeta();renderNotes();renderFxUI();
-
-
+  historySuspended=false;
+}
 
 document.getElementById('songInner').addEventListener('click',e=>{
   const row=e.target.closest('.track-row[data-group="boosts"]');
@@ -1631,7 +1816,7 @@ document.getElementById('addPatBoostBtn')&&document.getElementById('addPatBoostB
   const g=parseInt(document.getElementById('patGridSnap')?.value,10)||1;
   commitPatBoostBlock(trackId,end,Math.max(g,8));
 });
-document.getElementById('patAddBoostTrack2')&&document.getElementById('patAddBoostTrack2').addEventListener('click',()=>{
+document.getElementById('patAddBoostTrack2')&&document.getElementById('patAddBoostTrack2')&&document.getElementById('patAddBoostTrack2').addEventListener('click',()=>{
   const sel=document.getElementById('addPatBoostTrackKey');
   const key=sel&&sel.value;
   if(!key){openBoostTrackModal('pattern');return}
@@ -1662,25 +1847,31 @@ document.getElementById('boostTrackModal')&&document.getElementById('boostTrackM
   if(e.target.id==='boostTrackModal')closeBoostTrackModal();
 });
 
-(function wireDrumRename(){
+function applyDrumRenameFromInput(){
+  const inp=document.getElementById('drumRenameInput');
+  if(!inp)return false;
+  const d=currentDrumId?drumById(currentDrumId):null;
+  if(!d)return false;
+  const v=String(inp.value||'').trim();
+  if(!v)return false;
+  if(d.name===v)return false;
+  d.name=v;
+  const title=document.getElementById('drumDetailTitle');
+  if(title)title.textContent=v;
+  document.querySelectorAll('#drumsList .drum-card').forEach(card=>{
+    if(card.dataset.drumId===d.id||card.classList.contains('active')){
+      const lab=card.querySelector('.drum-name-label');
+      if(lab)lab.textContent=v;
+    }
+  });
+  return true;
+}
+function wireDrumRename(){
   const inp=document.getElementById('drumRenameInput');
   if(!inp||inp._wired)return;
   inp._wired=true;
   let t=null;
-  inp.addEventListener('input',()=>{
-    const d=currentDrumId?drumById(currentDrumId):null;if(!d)return;
-    const v=inp.value.trim();
-    if(!v)return;
-    d.name=v;
-    const title=document.getElementById('drumDetailTitle');
-    if(title)title.textContent=v;
-    // refresh list label without full re-render (keeps focus)
-    document.querySelectorAll('#drumsList .drum-card').forEach(card=>{
-      if(card.classList.contains('active')){
-        const lab=card.querySelector('.drum-name-label');
-        if(lab)lab.textContent=v;
-      }
-    });
+  const scheduleSideEffects=()=>{
     clearTimeout(t);
     t=setTimeout(()=>{
       if(typeof rebuildDrumTracksDOM==='function')rebuildDrumTracksDOM();
@@ -1688,21 +1879,48 @@ document.getElementById('boostTrackModal')&&document.getElementById('boostTrackM
       if(typeof renderSong==='function')renderSong();
       if(typeof renderFxUI==='function')renderFxUI();
       if(typeof rebuildSongFxAutoTracks==='function')rebuildSongFxAutoTracks();
-    },200);
+      if(typeof refreshAddBoostTrackKeySelect==='function')refreshAddBoostTrackKeySelect();
+      if(typeof refreshAddPatBoostTrackKeySelect==='function')refreshAddPatBoostTrackKeySelect();
+    },180);
+  };
+  inp.addEventListener('input',()=>{
+    if(applyDrumRenameFromInput())scheduleSideEffects();
   });
-})();
+  inp.addEventListener('change',()=>{
+    if(applyDrumRenameFromInput()){
+      if(typeof pushHistory==='function')pushHistory('Rename drum');
+      scheduleSideEffects();
+    }
+  });
+  inp.addEventListener('blur',()=>{
+    const d=currentDrumId?drumById(currentDrumId):null;
+    if(!d)return;
+    if(!String(inp.value||'').trim()){inp.value=d.name;return}
+    if(applyDrumRenameFromInput()){
+      if(typeof pushHistory==='function')pushHistory('Rename drum');
+      scheduleSideEffects();
+    }
+  });
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Enter'){e.preventDefault();inp.blur()}
+  });
+}
+wireDrumRename();
 document.getElementById('addDrumBtn')&&document.getElementById('addDrumBtn').addEventListener('click',()=>addDrum());
 
 function updateBackingBtnUI(){
   const btn=document.getElementById('backingBtn');
   const det=document.getElementById('detectBpmBtn');
+  const detSc=document.getElementById('detectScaleBtn');
   if(!btn)return;
   if(backingBuffer){
     btn.innerHTML='<i class="fa-solid fa-trash"></i> Remove backing';
     if(det)det.style.display='';
+    if(detSc)detSc.style.display='';
   }else{
     btn.innerHTML='<i class="fa-solid fa-music"></i> Add backing';
     if(det)det.style.display='none';
+    if(detSc)detSc.style.display='none';
   }
   const bl=document.getElementById('backingLabel');
   if(bl)bl.textContent=backingName?('Backing · '+backingName):'Backing';
@@ -1758,6 +1976,35 @@ document.getElementById('detectBpmBtn')&&document.getElementById('detectBpmBtn')
   }catch(err){console.error(err);alert('BPM detect failed');}
 });
 
+document.getElementById('detectScaleBtn')&&document.getElementById('detectScaleBtn').addEventListener('click',()=>{
+  if(!backingBuffer){alert('Load a backing track first');return}
+  const btn=document.getElementById('detectScaleBtn');
+  const status=document.getElementById('exportStatus');
+  if(btn){btn.disabled=true;btn.innerHTML='<i class="fa-solid fa-spinner fa-spin"></i> Detecting…'}
+  if(status)status.textContent='Detecting scale…';
+  setTimeout(()=>{
+    try{
+      const r=detectScaleFromBuffer(backingBuffer);
+      if(!r){
+        alert('Could not detect a clear scale from the backing track');
+        if(status)status.textContent='Scale detect: no clear result';
+      }else{
+        currentScaleId=(r.scale==='minor')?'minor':'major';
+        scaleRootPc=((r.root%12)+12)%12;
+        if(typeof fillScaleSelects==='function')fillScaleSelects();
+        const name=(NOTE_NAMES[scaleRootPc]||'?')+' '+(currentScaleId==='minor'?'Minor':'Major');
+        logAction('Detected scale ~ '+name+' (score '+r.score.toFixed(3)+')',false);
+        if(status)status.textContent='Detected scale ~ '+name;
+      }
+    }catch(err){
+      console.error(err);
+      alert('Scale detect failed: '+(err&&err.message?err.message:err));
+      if(status)status.textContent='Scale detect failed';
+    }
+    if(btn){btn.disabled=false;btn.innerHTML='<i class="fa-solid fa-music"></i> Detect scale'}
+  },30);
+});
+
 document.getElementById('drumUploadBtn')&&document.getElementById('drumUploadBtn').addEventListener('click',()=>{
   if(!currentDrumId)return;
   document.getElementById('drumSampleInput').click();
@@ -1788,8 +2035,6 @@ document.getElementById('drumDeleteBtn')&&document.getElementById('drumDeleteBtn
   if(currentDrumId)deleteDrum(currentDrumId);
 });
 
-  historySuspended=false;
-}
 function logAction(msg, undoable){
   const t=new Date();
   const ts=String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0')+':'+String(t.getSeconds()).padStart(2,'0');
@@ -1928,7 +2173,7 @@ function updateRateNoteHint(){
   const el=document.getElementById('rateNoteHz');
   if(!el)return;
   const pc=parseInt((document.getElementById('rateNote')||{}).value,10)||0;
-  const oct=parseInt((document.getElementById('rateOctave')||{}).value,10)||4;
+  const oct=parseOctaveVal((document.getElementById('rateOctave')||{}).value,4);
   const hz=noteToHz(pc,oct);
   el.textContent=hz.toFixed(1)+' Hz · '+Math.round(hz*60)+' BPM';
 }
@@ -1938,7 +2183,7 @@ function updateRateModeUI(){
   const nw=document.getElementById('rateNoteWrap');
   if(mw)mw.style.display=mode==='mult'?'inline-flex':'none';
   if(nw)nw.style.display=mode==='note'?'inline-flex':'none';
-  updateRateNoteHint();
+  if(typeof updateRateNoteHint==='function')updateRateNoteHint();
 }
 document.getElementById('settingsScale')&&document.getElementById('settingsScale').addEventListener('change',e=>{
   currentScaleId=(e.target.value==='minor')?'minor':'major';
@@ -1964,12 +2209,22 @@ document.getElementById('rateOctave')&&document.getElementById('rateOctave').add
 document.getElementById('rateInput')&&document.getElementById('rateInput').addEventListener('change',()=>{
   if(selectedPat&&selectedPat.size)applyRateToolsToSelectedBlocks();
 });
+document.getElementById('rateInput')&&document.getElementById('rateInput').addEventListener('input',()=>{
+  if(selectedPat&&selectedPat.size)applyRateToolsToSelectedBlocks();
+});
+document.getElementById('rateDenom')&&document.getElementById('rateDenom').addEventListener('change',()=>{
+  if(selectedPat&&selectedPat.size)applyRateToolsToSelectedBlocks();
+});
+document.getElementById('rateDenom')&&document.getElementById('rateDenom').addEventListener('input',()=>{
+  if(selectedPat&&selectedPat.size)applyRateToolsToSelectedBlocks();
+});
 document.getElementById('boostScaleQuant')&&document.getElementById('boostScaleQuant').addEventListener('change',()=>{
   applyBoostScaleQuantToSelection(false);
 });
 document.getElementById('patBoostScaleQuant')&&document.getElementById('patBoostScaleQuant').addEventListener('change',()=>{
   applyBoostScaleQuantToSelection(true);
 });
+
 
 
 function updateSampleRateUI(){
@@ -2056,12 +2311,21 @@ function ensurePatBoostTracks(pat){
 function ensurePatBoosts(pat){ensurePatBoostTracks(pat);return pat.boosts}
 function patBoostAt(pat,key,t){
   ensurePatBoostTracks(pat);
-  if(key==='meta')return 1;
+  if(key==='meta'||key==='structure')return 1;
   let mult=1;
   const meta=metaBoostAtPat(pat,t);
-  for(const tr of pat.boostTracks){
-    if(tr.key!==key||tr.key==='meta')continue;
-    for(const b of (pat.boosts[tr.id]||[])){
+  const seen=new Set();
+  for(const tr of (pat.boostTracks||[])){
+    if(tr.key!==key||tr.key==='meta'||tr.key==='structure')continue;
+    const list=pat.boosts[tr.id]||[];
+    seen.add(tr.id);
+    for(const b of list){
+      if(t>=b.start&&t<b.start+b.length)mult*=boostShape(b,t-b.start,meta);
+    }
+  }
+  // Legacy / mis-keyed lists stored under the semantic key itself
+  if(!seen.has(key)&&Array.isArray(pat.boosts[key])){
+    for(const b of pat.boosts[key]){
       if(t>=b.start&&t<b.start+b.length)mult*=boostShape(b,t-b.start,meta);
     }
   }
@@ -2980,7 +3244,7 @@ function boostsVary(pat,inst,groups,localStart,localLen,useSong,songOffset,boost
   const check=list=>{
     if(!list)return false;
     for(const b of list){
-      if(!boostIsTimeVarying(b))continue;
+      // Any overlapping boost (constant or shaped) must re-evaluate rate along the block
       if(b.start<localStart+localLen&&b.start+b.length>localStart)return true;
     }
     return false;
@@ -3033,17 +3297,27 @@ function normalizeBoost(b){
   if(b.slewIn==null)b.slewIn=0;
   if(b.slewOut==null)b.slewOut=0;
   if(b.scaleQuant==null)b.scaleQuant=false;
-  if(b.mode==='constant')b.rate=b.rateA;
+  if(b.timeQuant==null||!(+b.timeQuant>0))b.timeQuant=0;
+  else b.timeQuant=+b.timeQuant;
+  if(b.denomA==null||!(+b.denomA>=1))b.denomA=1;
+  else b.denomA=Math.max(1,Math.round(+b.denomA)||1);
+  if(b.denomB==null||!(+b.denomB>=1))b.denomB=1;
+  else b.denomB=Math.max(1,Math.round(+b.denomB)||1);
+  if(b.mode==='constant')b.rate=(+b.rateA)/b.denomA;
   return b;
 }
 /** Instantaneous multiplier for a boost block at local time within the block (ticks). */
 function boostCoreShape(b, localT, metaMult){
   normalizeBoost(b);
-  const a=+b.rateA, c=+b.rateB;
+  const a=(+b.rateA)/Math.max(1,+b.denomA||1);
+  const c=(+b.rateB)/Math.max(1,+b.denomB||1);
   const mode=b.mode||'constant';
   if(mode==='constant')return a;
   if(mode==='sweep'){
-    const u=b.length<=0?1:Math.min(1,Math.max(0,localT/b.length));
+    let t=localT;
+    const tq=+b.timeQuant||0;
+    if(tq>0)t=Math.floor(Math.max(0,localT)/tq)*tq;
+    const u=b.length<=0?1:Math.min(1,Math.max(0,t/b.length));
     return a+(c-a)*u;
   }
   const mm=Math.max(0.01, metaMult!=null?+metaMult:1);
@@ -3112,7 +3386,7 @@ function boostAt(key,t){
   let mult=1,any=false;
   const meta=metaBoostAtSong(t);
   for(const tr of boostTracks){
-    if(tr.key!==key||tr.key==='meta')continue;
+    if(tr.key!==key||tr.key==='meta'||tr.key==='structure')continue;
     for(const b of (songBoosts[tr.id]||[])){
       if(t>=b.start&&t<b.start+b.length){mult*=boostShape(b,t-b.start,meta);any=true}
     }
@@ -3125,6 +3399,7 @@ function boostClass(key){
   const tr=boostTrackById(key);
   const k=tr?tr.key:key;
   if(k==='total')return 'totalboost';
+  if(k==='structure')return 'totalboost';
   if(GROUPS.includes(k))return 'grpboost';
   return 'boost';
 }
@@ -3132,15 +3407,24 @@ function boostClass(key){
 function boostLabel(b){
   normalizeBoost(b);
   const a=b.rateA, c=b.rateB;
-  let s='×'+a;
-  if(b.mode==='constant')s='×'+a;
-  else if(b.mode==='sweep')s='↗'+a+'→'+c;
-  else if(b.mode==='square')s='⊓'+a+'/'+c;
-  else if(b.mode==='sine')s='∿'+a+'/'+c;
-  else if(b.mode==='saw')s='╱'+a+'/'+c;
-  else if(b.mode==='4pulse')s='4p '+a+'/'+c;
-  else if(b.mode==='8pulse')s='8p '+a+'/'+c;
+  const dA=Math.max(1,+b.denomA||1);
+  const dB=Math.max(1,+b.denomB||1);
+  const fa=dA===1?(''+a):(a+'/'+dA);
+  const fb=dB===1?(''+c):(c+'/'+dB);
+  let s='×'+fa;
+  if(b.mode==='constant')s='×'+fa;
+  else if(b.mode==='sweep')s='↗'+fa+'→'+fb;
+  else if(b.mode==='square')s='⊓'+fa+'/'+fb;
+  else if(b.mode==='sine')s='∿'+fa+'/'+fb;
+  else if(b.mode==='saw')s='╱'+fa+'/'+fb;
+  else if(b.mode==='4pulse')s='4p '+fa+'/'+fb;
+  else if(b.mode==='8pulse')s='8p '+fa+'/'+fb;
   if(b.scaleQuant)s+=' ♯';
+  if(b.mode==='sweep'&&+b.timeQuant>0){
+    const tq=+b.timeQuant;
+    const lab=tq===0.25?'/4':tq===0.5?'/2':tq===1?'×1':tq===2?'×2':tq===4?'×4':('q'+tq);
+    s+=' '+lab;
+  }
   return s;
 }
 
@@ -3230,13 +3514,50 @@ function patHpKey(inst,idx){return 'hp:'+inst+':'+idx}
 
 
 
+
+function setBoostScaleQuantVisible(show){
+  const w=document.getElementById('boostScaleQuantWrap');
+  if(w)w.style.display=show?'':'none';
+  if(!show){const el=document.getElementById('boostScaleQuant');if(el)el.checked=false}
+}
+function setPatBoostScaleQuantVisible(show){
+  const w=document.getElementById('patBoostScaleQuantWrap');
+  if(w)w.style.display=show?'':'none';
+  if(!show){const el=document.getElementById('patBoostScaleQuant');if(el)el.checked=false}
+}
+function selectedSongBoostIsStructure(){
+  for(const k of selectedSongItems){
+    const p=parseSongKey(k);
+    if(p&&p.type==='boost'){
+      const tr=boostTrackById(p.key);
+      if(tr&&tr.key==='structure')return true;
+    }
+  }
+  return false;
+}
+function selectedPatBoostIsStructure(){
+  const pat=curPat();if(!pat)return false;
+  for(const k of selectedPat){
+    if(!String(k).startsWith('pboost:'))continue;
+    const parts=String(k).split(':');
+    const tr=(pat.boostTracks||[]).find(t=>t.id===parts[1]);
+    if(tr&&tr.key==='structure')return true;
+  }
+  return false;
+}
+
 function updateBoostModeUI(){
-  const mode=document.getElementById('boostMode').value;
+  const mode=(document.getElementById('boostMode')||{}).value||'constant';
   const showB=mode!=='constant';
   const showP=mode==='square'||mode==='sine'||mode==='saw'||mode==='4pulse'||mode==='8pulse';
-  document.getElementById('boostBWrap').style.display=showB?'inline-flex':'none';
-  document.getElementById('boostPeriodWrap').style.display=showP?'inline-flex':'none';
-  document.getElementById('boostALabel').textContent=showB?'×A':'×';
+  const bWrap=document.getElementById('boostBWrap');
+  const pWrap=document.getElementById('boostPeriodWrap');
+  const aLab=document.getElementById('boostALabel');
+  if(bWrap)bWrap.style.display=showB?'inline-flex':'none';
+  if(pWrap)pWrap.style.display=showP?'inline-flex':'none';
+  if(aLab)aLab.textContent=showB?'×A':'×';
+  const tq=document.getElementById('boostTimeQuantWrap');
+  if(tq)tq.style.display=mode==='sweep'?'inline-flex':'none';
 }
 function updatePatBoostModeUI(){
   const modeEl=document.getElementById('patBoostMode');
@@ -3246,6 +3567,8 @@ function updatePatBoostModeUI(){
   const p=document.getElementById('patBoostPeriodWrap');
   if(b)b.style.display=mode!=='constant'?'inline-flex':'none';
   if(p)p.style.display=(mode==='square'||mode==='sine'||mode==='saw'||mode==='4pulse'||mode==='8pulse')?'inline-flex':'none';
+  const tq=document.getElementById('patBoostTimeQuantWrap');
+  if(tq)tq.style.display=mode==='sweep'?'inline-flex':'none';
 }
 function syncBoostToolsFromSelection(){
   for(const k of selectedSongItems){
@@ -3258,7 +3581,12 @@ function syncBoostToolsFromSelection(){
       document.getElementById('boostRateB').value=b.rateB;
       document.getElementById('boostSlewIn').value=b.slewIn||0;
       document.getElementById('boostSlewOut').value=b.slewOut||0;
-      const sq=document.getElementById('boostScaleQuant');if(sq)sq.checked=!!b.scaleQuant;
+      const tr=boostTrackById(p.key);
+      const isStruct=tr&&tr.key==='structure';
+      setBoostScaleQuantVisible(!isStruct);
+      const sq=document.getElementById('boostScaleQuant');if(sq)sq.checked=isStruct?false:!!b.scaleQuant;
+      const da=document.getElementById('boostDenomA');if(da)da.value=String(Math.max(1,Math.round(+b.denomA)||1));
+      const tq=document.getElementById('boostTimeQuant');if(tq)tq.value=String(+b.timeQuant||0);
       const sel=document.getElementById('boostPeriod');
       let found=false;
       for(const o of sel.options){if(Math.abs(parseFloat(o.value)-b.period)<1e-9){sel.value=o.value;found=true;break}}
@@ -3275,14 +3603,28 @@ function applyBoostToolsToSelection(){
   const period=parseFloat(document.getElementById('boostPeriod').value)||4;
   const slewIn=Math.max(0,parseInt(document.getElementById('boostSlewIn').value,10)||0);
   const slewOut=Math.max(0,parseInt(document.getElementById('boostSlewOut').value,10)||0);
+  const denomA=Math.max(1,Math.round(parseFloat(document.getElementById('boostDenomA')?.value))||1);
+  let scaleQuant=!!(document.getElementById('boostScaleQuant')&&document.getElementById('boostScaleQuant').checked);
+  const timeQuant=Math.max(0,parseFloat(document.getElementById('boostTimeQuant')?.value)||0);
+  let any=false;
   for(const k of selectedSongItems){
     const p=parseSongKey(k);
     if(p&&p.type==='boost'){
       const b=songBoosts[p.key][p.index];
-      b.mode=mode;b.rateA=rateA;b.rateB=rateB;b.period=period;b.rate=rateA;b.slewIn=slewIn;b.slewOut=slewOut;
+      if(!b)continue;
+      const tr=boostTrackById(p.key);
+      const isStruct=tr&&tr.key==='structure';
+      b.mode=mode;b.rateA=rateA;b.rateB=rateB;b.period=period;
+      b.denomA=denomA;b.rate=rateA/denomA;b.slewIn=slewIn;b.slewOut=slewOut;
+      b.scaleQuant=isStruct?false:scaleQuant;
+      b.timeQuant=mode==='sweep'?timeQuant:0;
+      any=true;
     }
   }
-  renderSong();
+  if(any)renderSong();
+}
+function applyBoostToolsToSelectionCommit(){
+  if(selectedSongItems.size){pushHistory('Edit boost');applyBoostToolsToSelection()}
 }
 function syncPatBoostTools(){
   const row=document.getElementById('patBoostModeRow');
@@ -3300,6 +3642,11 @@ function syncPatBoostTools(){
     document.getElementById('patBoostMode').value=b.mode;
     document.getElementById('patBoostRateA').value=b.rateA;
     document.getElementById('patBoostRateB').value=b.rateB;
+    const pda=document.getElementById('patBoostDenomA');if(pda)pda.value=String(Math.max(1,Math.round(+b.denomA)||1));
+    const isStruct=selectedPatBoostIsStructure();
+    setPatBoostScaleQuantVisible(!isStruct);
+    const psq=document.getElementById('patBoostScaleQuant');if(psq)psq.checked=isStruct?false:!!b.scaleQuant;
+    const ptq=document.getElementById('patBoostTimeQuant');if(ptq)ptq.value=String(+b.timeQuant||0);
     const sel=document.getElementById('patBoostPeriod');
     for(const o of sel.options){if(Math.abs(parseFloat(o.value)-b.period)<1e-9){sel.value=o.value;break}}
     updatePatBoostModeUI();
@@ -3311,15 +3658,27 @@ function applyPatBoostTools(){
   const rateA=Math.max(0,parseFloat(document.getElementById('patBoostRateA').value)||0);
   const rateB=Math.max(0,parseFloat(document.getElementById('patBoostRateB').value)||0);
   const period=parseFloat(document.getElementById('patBoostPeriod').value)||4;
+  const denomA=Math.max(1,Math.round(parseFloat(document.getElementById('patBoostDenomA')?.value))||1);
+  let scaleQuant=!!(document.getElementById('patBoostScaleQuant')&&document.getElementById('patBoostScaleQuant').checked);
+  const timeQuant=mode==='sweep'?Math.max(0,parseFloat(document.getElementById('patBoostTimeQuant')?.value)||0):0;
   const pat=curPat();if(!pat)return;
   ensurePatBoosts(pat);
+  let any=false;
   for(const k of selectedPat){
-    let b=null;
+    let b=null;let isStruct=false;
     if(k.startsWith('total:'))b=pat.totalBoost[+k.slice(6)];
-    else if(k.startsWith('pboost:')){const parts=k.split(':');b=pat.boosts[parts[1]][+parts[2]]}
+    else if(k.startsWith('pboost:')){
+      const parts=k.split(':');
+      b=pat.boosts[parts[1]][+parts[2]];
+      const tr=(pat.boostTracks||[]).find(t=>t.id===parts[1]);
+      isStruct=tr&&tr.key==='structure';
+    }
     if(!b)continue;
-    b.mode=mode;b.rateA=rateA;b.rateB=rateB;b.period=period;b.rate=rateA;
+    b.mode=mode;b.rateA=rateA;b.rateB=rateB;b.period=period;b.denomA=denomA;b.rate=rateA/denomA;
+    b.scaleQuant=isStruct?false:scaleQuant;b.timeQuant=timeQuant;
+    any=true;
   }
+  if(any)pushHistory('Edit pattern boost');
   renderPatternTracks();
 }
 
@@ -3517,6 +3876,83 @@ function detectBpmFromBuffer(buffer){
 }
 
 
+
+function detectScaleFromBuffer(buffer){
+  // Chromagram key estimate (major/minor × 12 roots). Best-effort, not studio-accurate.
+  const sr=buffer.sampleRate;
+  const ch0=buffer.getChannelData(0);
+  const ch1=buffer.numberOfChannels>1?buffer.getChannelData(1):null;
+  // Sample up to ~45s from a bit into the track (skip silence/intro fade)
+  const start=Math.min(ch0.length, Math.floor(sr*0.5));
+  const end=Math.min(ch0.length, start+Math.floor(sr*45));
+  const n=end-start;
+  if(n<sr*2)return null;
+
+  // Downsample envelope + simple Goertzel-style energy at pitch-class frequencies
+  // across several octaves (MIDI 36–96 ≈ C2–C7)
+  const chroma=new Float64Array(12);
+  const hop=Math.max(1, Math.floor(sr/200)); // ~200 Hz analysis rate on energy
+  // For each pitch class, sum energy of sinusoid projections at multiple octaves
+  // using short blocks to average over time
+  const blockSec=0.25;
+  const blockN=Math.max(256, Math.floor(sr*blockSec));
+  const step=Math.max(blockN, Math.floor(sr*0.5));
+  for(let pos=start; pos+blockN<=end; pos+=step){
+    // Hann windowed energy per PC via Goertzel for MIDI notes
+    for(let midi=36; midi<=96; midi++){
+      const pc=((midi%12)+12)%12;
+      const freq=440*Math.pow(2,(midi-69)/12);
+      if(freq>=sr*0.45)continue;
+      const w=2*Math.PI*freq/sr;
+      const coeff=2*Math.cos(w);
+      let s0=0,s1=0,s2=0;
+      // subsample block for speed
+      const stride=Math.max(1, Math.floor(blockN/2048));
+      let i=0, count=0;
+      for(; i<blockN; i+=stride){
+        let sample=ch0[pos+i]||0;
+        if(ch1)sample=0.5*(sample+(ch1[pos+i]||0));
+        // mild highpass emphasis via first difference on sample stream is skipped for speed
+        const hann=0.5-0.5*Math.cos(2*Math.PI*i/blockN);
+        const x=sample*hann;
+        s0=x+coeff*s1-s2;
+        s2=s1;s1=s0;
+        count++;
+      }
+      const power=s1*s1+s2*s2-coeff*s1*s2;
+      if(power>0)chroma[pc]+=power;
+    }
+  }
+  // Normalize
+  let sum=0; for(let i=0;i<12;i++)sum+=chroma[i];
+  if(!(sum>0))return null;
+  for(let i=0;i<12;i++)chroma[i]/=sum;
+
+  // Krumhansl-Schmuckler key profiles (simplified)
+  const majorProf=[6.35,2.23,3.48,2.33,4.38,4.09,2.52,5.19,2.39,3.66,2.29,2.88];
+  const minorProf=[6.33,2.68,3.52,5.38,2.60,3.53,2.54,4.75,3.98,2.69,3.34,3.17];
+  function corr(prof, root){
+    let meanC=0, meanP=0;
+    const rot=new Float64Array(12);
+    for(let i=0;i<12;i++){rot[i]=prof[(i-root+12)%12]; meanC+=chroma[i]; meanP+=rot[i]}
+    meanC/=12; meanP/=12;
+    let num=0,d1=0,d2=0;
+    for(let i=0;i<12;i++){
+      const a=chroma[i]-meanC, b=rot[i]-meanP;
+      num+=a*b; d1+=a*a; d2+=b*b;
+    }
+    return num/(Math.sqrt(d1*d2)||1e-12);
+  }
+  let best={root:0,scale:'major',score:-2};
+  for(let root=0; root<12; root++){
+    const maj=corr(majorProf, root);
+    const min=corr(minorProf, root);
+    if(maj>best.score)best={root,scale:'major',score:maj};
+    if(min>best.score)best={root,scale:'minor',score:min};
+  }
+  return best;
+}
+
 function migrateAutoToPoints(list, isVol){
   if(!list)return [];
   if(!list.length)return [];
@@ -3646,8 +4082,10 @@ function multAt(pat,inst,groups,localT,useSong,songOffset,boostability){
   }
   return mult;
 }
-function schedulePatternBlocks(pat,offsetSec,baseBpm,songOffsetTicks,winFromLocal,winToLocal){
+function schedulePatternBlocks(pat,offsetSec,baseBpm,songOffsetTicks,winFromLocal,winToLocal,rateBaseBpm){
   // winFromLocal/winToLocal optional local-tick window; omit to schedule whole pattern
+  // rateBaseBpm: BPM used for drum segment rate math (defaults to baseBpm). Timing uses baseBpm.
+  const rateBpm=rateBaseBpm!=null?rateBaseBpm:baseBpm;
   const secPerClick=60/baseBpm;
   const useSongBoost=songOffsetTicks!=null;
   const w0=winFromLocal!=null?winFromLocal:-1e15;
@@ -3657,8 +4095,40 @@ function schedulePatternBlocks(pat,offsetSec,baseBpm,songOffsetTicks,winFromLoca
   for(const inst of INSTS){
     for(const b of (pat.blocks[inst]||[])){
       ensureGroups(b);
-      if(b.rate<=0)continue;
       const local0=b.start, localLen=b.length;
+      if(b.rateMode==='single'){
+        const w0s=winFromLocal!=null?winFromLocal:-1e15;
+        const w1s=winToLocal!=null?winToLocal:1e15;
+        if(local0>=w0s-1e-9&&local0<w1s+1e-12){
+          try{
+            ensureAudio();
+            const absTick=useSongBoost?(songOffsetTicks||0)+local0:0;
+            let startP=0,spd=1;
+            try{
+              if(typeof drumStartAt==='function')startP=drumStartAt(inst,useSongBoost?absTick:null);
+              if(typeof drumSpeedMultAt==='function')spd=drumSpeedMultAt(inst,useSongBoost?absTick:null);
+            }catch(_){}
+            const impulse=getImpulse(inst,audioCtx.sampleRate,startP,spd);
+            if(impulse&&impulse.length){
+              const ab=audioCtx.createBuffer(1,Math.max(1,impulse.length),audioCtx.sampleRate);
+              try{ab.copyToChannel(impulse,0)}catch(_){
+                const ch=ab.getChannelData(0);const n=Math.min(ch.length,impulse.length);
+                for(let i=0;i<n;i++)ch[i]=impulse[i];
+              }
+              let gain=1;
+              try{
+                gain=(typeof patVolAt==='function'?patVolAt(pat,inst,local0):1);
+                if(useSongBoost&&typeof songVolAt==='function')gain*=songVolAt(inst,(songOffsetTicks||0)+local0);
+              }catch(_){}
+              const g0=Math.max(0,gain);
+              scheduleBuf(ab, offsetSec+local0*secPerClick, {channel:inst, gainFn:()=>g0, cutPrevious:!drumLayering(inst)});
+              blocksSched++;
+            }
+          }catch(err){console.warn('single hit',err)}
+        }
+        continue;
+      }
+      if(!(b.rate>0)&&b.rateMode!=='note')continue;
       const local1=local0+localLen;
       if(local1<=w0||local0>=w1)continue;
       const ba=ensureBoostability(b);
@@ -3704,7 +4174,7 @@ function schedulePatternBlocks(pat,offsetSec,baseBpm,songOffsetTicks,winFromLoca
         const buffer=buildVariableRateBuffer(inst,localLen*secPerClick,tSec=>{
           const localT=local0+tSec/secPerClick;
           const mult=blockRateMult(b)*multAt(pat,inst,b.groups,localT,useSongBoost,songOffsetTicks||0,ba);
-          const bpm0=baseBpm*Math.max(0,mult);
+          const bpm0=rateBpm*Math.max(0,mult);
           return applyScaleQuantToBpm(bpm0,pat,inst,b.groups,localT,useSongBoost,songOffsetTicks||0,ba);
         },fromSec,toSec,(useSongBoost?(songOffsetTicks||0):0)+local0,secPerClick);
         msVary+=performance.now()-tB;
@@ -3763,7 +4233,7 @@ function schedulePatternBlocks(pat,offsetSec,baseBpm,songOffsetTicks,winFromLoca
           const buffer=buildVariableRateBuffer(inst, localLen*secPerClick, tSec=>{
             const localT=local0+tSec/secPerClick;
             const m=blockRateMult(b)*multAt(pat,inst,b.groups,localT,useSongBoost,songOffsetTicks||0,ba);
-            const bpm0=baseBpm*Math.max(0,m);
+            const bpm0=rateBpm*Math.max(0,m);
             return applyScaleQuantToBpm(bpm0,pat,inst,b.groups,localT,useSongBoost,songOffsetTicks||0,ba);
           }, fromSec, toSec,(useSongBoost?(songOffsetTicks||0):0)+local0,secPerClick);
           msConst+=performance.now()-tB;
@@ -3777,18 +4247,112 @@ function schedulePatternBlocks(pat,offsetSec,baseBpm,songOffsetTicks,winFromLoca
   return {blocksSched,varyBuilds,constBuilds,msVary,msConst};
 }
 
+
+function structureMultAt(absTick){
+  let mult=1,any=false;
+  for(const tr of boostTracks){
+    if(tr.key!=='structure')continue;
+    for(const b of (songBoosts[tr.id]||[])){
+      if(absTick>=b.start&&absTick<b.start+b.length){
+        mult*=boostShape(b,absTick-b.start,1);
+        any=true;
+      }
+    }
+  }
+  return any?mult:1;
+}
+function structureCuts(sStart,u0,u1){
+  const cuts=[u0,u1];
+  for(const tr of boostTracks){
+    if(tr.key!=='structure')continue;
+    for(const b of (songBoosts[tr.id]||[])){
+      const a=b.start-sStart,e=b.start+b.length-sStart;
+      if(a>u0&&a<u1)cuts.push(a);
+      if(e>u0&&e<u1)cuts.push(e);
+    }
+  }
+  cuts.sort((x,y)=>x-y);
+  const out=[];
+  for(const x of cuts){if(!out.length||Math.abs(out[out.length-1]-x)>1e-9)out.push(x)}
+  return out;
+}
+function structureIntegral(sStart,songLocal){
+  if(songLocal<=0)return 0;
+  const cuts=structureCuts(sStart,0,songLocal);
+  let sum=0;
+  for(let i=0;i<cuts.length-1;i++){
+    const a=cuts[i],b=cuts[i+1];
+    if(b<=a)continue;
+    const m=structureMultAt(sStart+(a+b)/2);
+    sum+=m*(b-a);
+  }
+  return sum;
+}
+function invertStructureIntegral(sStart,targetI,maxU){
+  if(targetI<=0)return 0;
+  let lo=0,hi=Math.max(maxU||0,1);
+  // expand hi until integral >= target
+  while(structureIntegral(sStart,hi)<targetI&&hi<1e7){hi=hi*2+1}
+  for(let i=0;i<48;i++){
+    const mid=(lo+hi)/2;
+    if(structureIntegral(sStart,mid)<targetI)lo=mid;else hi=mid;
+  }
+  return (lo+hi)/2;
+}
+function structureActiveInRange(abs0,abs1){
+  for(const tr of boostTracks){
+    if(tr.key!=='structure')continue;
+    for(const b of (songBoosts[tr.id]||[])){
+      if(b.start<abs1&&b.start+b.length>abs0)return true;
+    }
+  }
+  return false;
+}
+
+
 function scheduleSongWindow(t0,base,songSecFrom,songSecTo){
   const secPerClick=60/base;
   let total={blocksSched:0,varyBuilds:0,constBuilds:0,msVary:0,msConst:0,patterns:0};
   for(const s of song){
     const pat=patterns[s.patternId];if(!pat)continue;
-    const p0=s.start*secPerClick, p1=p0+pat.length*secPerClick;
+    const L=pat.length;
+    const p0=s.start*secPerClick, p1=p0+L*secPerClick;
     if(p1<=songSecFrom||p0>=songSecTo)continue;
-    const localFrom=(songSecFrom-p0)/secPerClick;
-    const localTo=(songSecTo-p0)/secPerClick;
-    const r=schedulePatternBlocks(pat,t0+p0,base,s.start,localFrom,localTo);
-    total.blocksSched+=r.blocksSched;total.varyBuilds+=r.varyBuilds;total.constBuilds+=r.constBuilds;
-    total.msVary+=r.msVary;total.msConst+=r.msConst;total.patterns++;
+    const u0=Math.max(0,(songSecFrom-p0)/secPerClick);
+    const u1=Math.min(L,(songSecTo-p0)/secPerClick);
+    if(u1<=u0)continue;
+    const abs0=s.start+u0, abs1=s.start+u1;
+    if(!structureActiveInRange(abs0,abs1)){
+      const r=schedulePatternBlocks(pat,t0+p0,base,s.start,u0,u1);
+      total.blocksSched+=r.blocksSched;total.varyBuilds+=r.varyBuilds;total.constBuilds+=r.constBuilds;
+      total.msVary+=r.msVary;total.msConst+=r.msConst;total.patterns++;
+      continue;
+    }
+    // Structure: content position = integral of structure mult; wraps within pattern length
+    const I0=structureIntegral(s.start,u0);
+    const I1=structureIntegral(s.start,u1);
+    let cpos=I0;
+    while(cpos<I1-1e-10){
+      const loc=((cpos%L)+L)%L;
+      const chunk=Math.min(L-loc,I1-cpos);
+      if(chunk<=1e-12){cpos+=1e-9;continue}
+      const su0=invertStructureIntegral(s.start,cpos,L*8+u1);
+      const su1=invertStructureIntegral(s.start,cpos+chunk,L*8+u1);
+      const span=Math.max(1e-12,su1-su0);
+      const bpmScale=chunk/span; // pattern ticks per song tick
+      const bpmEff=Math.max(1e-6,base*bpmScale);
+      const secEff=60/bpmEff;
+      // wall-clock song time when this chunk starts
+      const wallSec=(s.start+su0)*secPerClick;
+      const offsetSec=t0+wallSec-loc*secEff;
+      // songOffset so abs≈s.start+su0 at local=loc (boosts follow song clock approximately within chunk)
+      // Timing follows structure (bpmEff); drum segment rates use original base BPM only
+      const r=schedulePatternBlocks(pat,offsetSec,bpmEff,s.start+su0-loc,loc,loc+chunk,base);
+      total.blocksSched+=r.blocksSched;total.varyBuilds+=r.varyBuilds;total.constBuilds+=r.constBuilds;
+      total.msVary+=r.msVary;total.msConst+=r.msConst;
+      cpos+=chunk;
+    }
+    total.patterns++;
   }
   return total;
 }
@@ -4332,6 +4896,30 @@ function refreshPatternSelect(){
 }
 
 
+
+function updatePatToolContext(){
+  const rateRow=document.getElementById('patRateTools');
+  const boostRow=document.getElementById('patBoostTools');
+  let selBoost=false, selRate=false;
+  for(const k of selectedPat){
+    if(String(k).startsWith('pboost:')||String(k).startsWith('total:'))selBoost=true;
+    else selRate=true;
+  }
+  // While placing a boost, prefer boost tools
+  if(placePending&&String(placePending.kind||placePending.key||'').indexOf('pboost')>=0)selBoost=true;
+  if(placePending&&String(placePending.kind||'')==='rate')selRate=true;
+  // Default: both visible if nothing selected; when boost selected hide drum rate/note tools
+  if(rateRow){
+    if(selBoost&&!selRate)rateRow.style.display='none';
+    else rateRow.style.display='';
+  }
+  if(boostRow){
+    // Always allow boost tools when editing pattern; emphasize when boost selected
+    boostRow.style.display='';
+    boostRow.style.opacity=(selBoost||!selRate)?'1':'0.85';
+  }
+}
+
 function updatePatternEditorVisibility(){
   const has=!!(currentPatId&&patterns[currentPatId]);
   const empty=document.getElementById('patEmptyState');
@@ -4353,11 +4941,13 @@ function openPattern(id){if(!patterns[id])return;currentPatId=id;selectedPat.cle
 function syncRateToolsFromBlock(b){
   if(!b)return;
   const modeEl=document.getElementById('rateMode');
-  const mode=b.rateMode==='note'?'note':'mult';
+  const mode=b.rateMode==='single'?'single':(b.rateMode==='note'?'note':'mult');
   if(modeEl)modeEl.value=mode;
   if(typeof updateRateModeUI==='function')updateRateModeUI();
   const rateEl=document.getElementById('rateInput');
   if(rateEl&&b.rate!=null)rateEl.value=b.rate;
+  const rd=document.getElementById('rateDenom');
+  if(rd)rd.value=String(Math.max(1,Math.round(+b.rateDenom)||1));
   if(typeof fillScaleSelects==='function')fillScaleSelects();
   const rn=document.getElementById('rateNote');
   const ro=document.getElementById('rateOctave');
@@ -4379,7 +4969,7 @@ function applyRateToolsToSelectedBlocks(){
   const mode=(document.getElementById('rateMode')||{}).value||'mult';
   let rate=Math.max(0,parseFloat(document.getElementById('rateInput')?.value)||1);
   let notePc=parseInt(document.getElementById('rateNote')?.value,10)||0;
-  let octave=parseInt(document.getElementById('rateOctave')?.value,10)||4;
+  let octave=parseOctaveVal(document.getElementById('rateOctave')?.value,4);
   if(mode==='note')rate=blockRateMult({rateMode:'note',notePc,octave});
   pushHistory('Edit rate block');
   let any=false;
@@ -4392,8 +4982,12 @@ function applyRateToolsToSelectedBlocks(){
     if(!pat.blocks[inst]||!pat.blocks[inst][idx])continue;
     const b=pat.blocks[inst][idx];
     b.rateMode=mode;
-    if(mode==='note'){b.notePc=notePc;b.octave=octave;b.rate=rate;}
-    else{b.rate=rate;b.rateMode='mult';}
+    if(mode==='single'){b.rate=0;b.rateDenom=1;}
+    else if(mode==='note'){b.notePc=notePc;b.octave=octave;b.rate=rate;b.rateDenom=1;}
+    else{
+      b.rate=rate;b.rateMode='mult';
+      b.rateDenom=Math.max(1,Math.round(parseFloat(document.getElementById('rateDenom')?.value))||1);
+    }
     any=true;
   }
   if(any)renderPatternTracks();
@@ -4442,12 +5036,16 @@ function blockLabel(b){
   ensureBoostability(b);
   const g=b.groups.length?(' '+b.groups.join('')):'';
   let core;
-  if(b.rateMode==='note'){
+  if(b.rateMode==='single'){
+    core='●1';
+  }else if(b.rateMode==='note'){
     const pc=(b.notePc!=null?+b.notePc:0);
     const oct=(b.octave!=null?+b.octave:4);
     core=(typeof NOTE_NAMES!=='undefined'?NOTE_NAMES[((pc%12)+12)%12]:'N')+oct;
   }else{
-    core='×'+(b.rate!=null?b.rate:1);
+    const den=Math.max(1,Math.round(+b.rateDenom)||1);
+    const num=b.rate!=null?b.rate:1;
+    core=den===1?('×'+num):('×'+num+'/'+den);
   }
   return core+g+boostabilityLabel(b);
 }
@@ -4894,7 +5492,11 @@ function renderDrumsUI(){
   const title=document.getElementById('drumDetailTitle');
   if(title)title.textContent=d.name;
   const renameIn=document.getElementById('drumRenameInput');
-  if(renameIn)renameIn.value=d.name;
+  if(renameIn){
+    // Don't clobber while the user is actively typing a new name
+    if(document.activeElement!==renameIn)renameIn.value=d.name;
+    if(typeof wireDrumRename==='function')wireDrumRename();
+  }
   const recolor=document.getElementById('drumRecolorRow');
   if(recolor){
     recolor.innerHTML='';
@@ -5051,8 +5653,10 @@ function renderPatternTracks(){
       const cls=GROUPS.includes(tr.key)?'grpboost':(tr.key==='total'?'totalboost':(tr.key==='meta'?'totalboost':'boost'));
       el.className='block '+cls+(selectedPat.has(sk)?' selected':'');
       el.style.left=(b.start*px)+'px';el.style.width=Math.max(12,b.length*px)+'px';
-      if(tr.key==='meta')el.style.background='linear-gradient(90deg,#ffcc66,#cc8800)';
+      if(tr.key==='meta'||tr.key==='structure'||tr.key==='total'||(typeof GROUPS!=='undefined'&&GROUPS.includes(tr.key)))
+        el.style.background=boostBlockBackground(tr.key);
       else if(typeof drumById==='function'&&drumById(tr.key))el.style.background=drumColor(tr.key);
+      else el.style.background=boostBlockBackground(tr.key);
       el.textContent=boostLabel(b);el.dataset.selKey=sk;
       const handle=document.createElement('div');handle.className='resize-handle';el.appendChild(handle);
       el.addEventListener('mousedown',e=>{
@@ -5083,11 +5687,13 @@ function renderPatternTracks(){
   if(!pat.hp)pat.hp=emptyBlocks();
   if(typeof refreshGroupToggles==='function')refreshGroupToggles();
   if(typeof applyPatTrackVisibility==='function')applyPatTrackVisibility();
+  if(typeof updatePatToolContext==='function')updatePatToolContext();
 }
 
 function boostTrackLabel(key){
   if(key==='total')return 'Total ×';
   if(key==='meta')return 'Meta FM ×';
+  if(key==='structure')return 'Structure ×';
   if(GROUPS.includes(key))return 'Group '+key+' ×';
   return drumName(key)+' ×';
 }
@@ -5121,8 +5727,12 @@ function commitPatBoostBlock(trackId,start,length){
   const fitted=fitBlockInTrack(pat.boosts[trackId],start,length);
   if(!fitted)return;
   pushHistory('Add pattern boost');
-  const scaleQuant=!!(document.getElementById('patBoostScaleQuant')&&document.getElementById('patBoostScaleQuant').checked);
-  pat.boosts[trackId].push({start:fitted.start,length:fitted.length,mode,rateA,rateB,period,scaleQuant});
+  let scaleQuant=!!(document.getElementById('patBoostScaleQuant')&&document.getElementById('patBoostScaleQuant').checked);
+  const denomA=Math.max(1,Math.round(parseFloat(document.getElementById('patBoostDenomA')?.value))||1);
+  const timeQuant=mode==='sweep'?Math.max(0,parseFloat(document.getElementById('patBoostTimeQuant')?.value)||0):0;
+  const ptr=(pat.boostTracks||[]).find(t=>t.id===trackId);
+  if(ptr&&ptr.key==='structure')scaleQuant=false;
+  pat.boosts[trackId].push({start:fitted.start,length:fitted.length,mode,rateA,rateB,period,scaleQuant,denomA,timeQuant});
   pat.boosts[trackId].sort((a,b)=>a.start-b.start);
   renderPatternTracks();
 }
@@ -5157,8 +5767,10 @@ function rebuildBoostTrackDOM(){
       const bt=document.createElement('span');bt.textContent=t.label||boostTrackLabel(t.key);bt.style.flex='1';bt.style.overflow='hidden';bt.style.textOverflow='ellipsis';
       lab.appendChild(bt);
       lab.title='Click × to remove booster track';
-      if(t.key==='meta'){lab.style.color='#ffcc66';lab.style.borderLeft='3px solid #ffcc66'}
-      else if(typeof drumById==='function'&&drumById(t.key)){const col=drumColor(t.key);lab.style.color=col;lab.style.borderLeft='3px solid '+col}
+      {
+        const col=boostSemanticColor(t.key);
+        lab.style.color=col;lab.style.borderLeft='3px solid '+col;
+      }
       const del=document.createElement('button');del.type='button';del.className='btn-dim btn-sm';del.innerHTML='<i class="fa-solid fa-xmark"></i>';
       del.style.padding='0 4px';del.style.minWidth='22px';del.style.fontSize='.7rem';
       del.addEventListener('click',e=>{e.stopPropagation();removeSongBoostTrack(t.id)});
@@ -5192,9 +5804,11 @@ function rebuildPatBoostTrackDOM(){
       lab.dataset.group='pboosts';
       lab.dataset.boostId=t.id;
       lab.textContent=t.label||boostTrackLabel(t.key);
-      lab.title='Right-click to remove track';
-      if(t.key==='meta'){lab.style.color='#ffcc66';lab.style.borderLeft='3px solid #ffcc66'}
-      else if(typeof drumById==='function'&&drumById(t.key)){const col=drumColor(t.key);lab.style.color=col;lab.style.borderLeft='3px solid '+col}
+      lab.title='Click × or right-click to remove track';
+      {
+        const col=boostSemanticColor(t.key);
+        lab.style.color=col;lab.style.borderLeft='3px solid '+col;
+      }
       lab.addEventListener('contextmenu',e=>{e.preventDefault();removePatBoostTrack(t.id)});
       boostL.appendChild(lab);
     }
@@ -5249,6 +5863,9 @@ function openBoostTrackModal(target){
   }
   const typeEl=document.getElementById('boostTrackType');
   if(typeEl)typeEl.value='total';
+  const structOpt=document.getElementById('boostTrackStructureOpt');
+  if(structOpt)structOpt.style.display=(target==='pattern')?'none':'';
+  if(typeEl&&target==='pattern'&&typeEl.value==='structure')typeEl.value='total';
   const gRow=document.getElementById('boostTrackGroupRow');
   const dRow=document.getElementById('boostTrackDrumRow');
   if(gRow)gRow.style.display='none';
@@ -5272,6 +5889,10 @@ function confirmBoostTrackModal(){
   }else if(type==='meta'){
     key='meta';
     label='Meta FM ×';
+  }else if(type==='structure'){
+    if(boostTrackModalTarget==='pattern'){alert('Structure tracks are compose-only');return}
+    key='structure';
+    label='Structure ×';
   }
   const id=boostUid();
   pushHistory('Add booster track');
@@ -5335,8 +5956,10 @@ function renderSong(){
       el.className='block '+boostClass(key)+(selectedSongItems.has(sk)?' selected':'');
       el.style.left=(b.start*px)+'px';el.style.width=Math.max(12,b.length*px)+'px';el.textContent=boostLabel(b);el.dataset.selKey=sk;
       const tr=boostTrackById(key);const bk=tr?tr.key:key;
-      if(bk==='meta')el.style.background='linear-gradient(90deg,#ffcc66,#cc8800)';
+      if(bk==='meta'||bk==='structure'||bk==='total'||(typeof GROUPS!=='undefined'&&GROUPS.includes(bk)))
+        el.style.background=boostBlockBackground(bk);
       else if(typeof drumById==='function'&&drumById(bk))el.style.background=drumColor(bk);
+      else el.style.background=boostBlockBackground(bk);
       const handle=document.createElement('div');handle.className='resize-handle';el.appendChild(handle);
       el.addEventListener('mousedown',e=>{
         if(e.target===handle)return;e.preventDefault();e.stopPropagation();
@@ -5839,8 +6462,12 @@ function commitBoostBlock(key,start,length){
   const period=parseFloat(document.getElementById('boostPeriod').value)||4;
   const slewIn=Math.max(0,parseInt(document.getElementById('boostSlewIn').value,10)||0);
   const slewOut=Math.max(0,parseInt(document.getElementById('boostSlewOut').value,10)||0);
-  const scaleQuant=!!(document.getElementById('boostScaleQuant')&&document.getElementById('boostScaleQuant').checked);
-  const block={start,length,mode,rateA,rateB,period,rate:rateA,slewIn,slewOut,scaleQuant:!!scaleQuant};
+  let scaleQuant=!!(document.getElementById('boostScaleQuant')&&document.getElementById('boostScaleQuant').checked);
+  const denomA=Math.max(1,Math.round(parseFloat(document.getElementById('boostDenomA')?.value))||1);
+  const timeQuant=mode==='sweep'?Math.max(0,parseFloat(document.getElementById('boostTimeQuant')?.value)||0):0;
+  const tr=boostTrackById(key);
+  if(tr&&tr.key==='structure')scaleQuant=false;
+  const block={start,length,mode,rateA,rateB,period,rate:rateA/denomA,slewIn,slewOut,scaleQuant:!!scaleQuant,denomA,timeQuant};
   if(!songBoosts[key])songBoosts[key]=[];
   songBoosts[key].push(block);songBoosts[key].sort((a,b)=>a.start-b.start);
   const ni=songBoosts[key].indexOf(block);
@@ -5950,6 +6577,7 @@ function projectJSON(){
     bpm:getBpm(),
     params,patterns,patternOrder,folders,patternSort,song,boostTracks,songBoosts,songVolumes,songSpeeds,songLP,songHP,
     theme:currentTheme,
+    boostColors:Object.assign({},boostColors),
     scaleId:currentScaleId,
     scaleRootPc:scaleRootPc,
     backingOffsetSec:backingOffsetSec,
@@ -6143,30 +6771,97 @@ async function newProject(){
   logAction('New project',true);
 }
 
+
+let exportCancelFlag=false;
+let exportProgressTimer=null;
+
+function setExportProgress(pct, msg, detail){
+  if(pct!=null){
+    pct=Math.max(0,Math.min(100,+pct||0));
+    const bar=document.getElementById('exportProgressBar');
+    const pctEl=document.getElementById('exportProgressPct');
+    if(bar)bar.style.width=pct.toFixed(1)+'%';
+    if(pctEl)pctEl.textContent=Math.round(pct)+'%';
+  }
+  const msgEl=document.getElementById('exportProgressMsg');
+  const detEl=document.getElementById('exportProgressDetail');
+  if(msg!=null&&msgEl)msgEl.textContent=msg;
+  if(detail!=null&&detEl)detEl.textContent=detail;
+}
+
+function openExportProgressModal(title){
+  exportCancelFlag=false;
+  const ov=document.getElementById('exportProgressModal');
+  const t=document.getElementById('exportProgressTitle');
+  const btn=document.getElementById('exportProgressCancel');
+  if(btn)btn.disabled=false;
+  if(t)t.textContent=title||'Exporting…';
+  setExportProgress(0,'Preparing render…','Starting');
+  if(ov){ov.style.display='flex';ov.style.alignItems='center';ov.style.justifyContent='center'}
+  try{document.body.style.overflow='hidden'}catch(_){}
+}
+
+function closeExportProgressModal(){
+  if(exportProgressTimer){clearInterval(exportProgressTimer);exportProgressTimer=null}
+  const ov=document.getElementById('exportProgressModal');
+  if(ov)ov.style.display='none';
+  try{document.body.style.overflow=''}catch(_){}
+}
+
+function startExportProgressSim(expectedSec){
+  if(exportProgressTimer){clearInterval(exportProgressTimer);exportProgressTimer=null}
+  const start=performance.now();
+  const dur=Math.max(0.8,(+expectedSec||2)*0.35);
+  exportProgressTimer=setInterval(()=>{
+    if(exportCancelFlag)return;
+    const elapsed=(performance.now()-start)/1000;
+    const p=92*(1-Math.exp(-elapsed/(dur*0.55)));
+    setExportProgress(Math.min(92,p),'Rendering audio…',elapsed.toFixed(1)+'s elapsed');
+  },100);
+}
+
+function finishExportProgressSim(){
+  if(exportProgressTimer){clearInterval(exportProgressTimer);exportProgressTimer=null}
+  setExportProgress(100,'Finishing…','Done');
+}
+
+async function offlineRenderWithProgress(offline, label){
+  const secs=offline.length/(offline.sampleRate||48000);
+  startExportProgressSim(secs);
+  if(label)setExportProgress(null,label);
+  await new Promise(r=>setTimeout(r,40));
+  if(exportCancelFlag)throw new Error('cancelled');
+  const rendered=await offline.startRendering();
+  if(exportCancelFlag)throw new Error('cancelled');
+  finishExportProgressSim();
+  return rendered;
+}
+
 async function exportWav(){
   const status=document.getElementById('exportStatus');
+  let realCtx, realMaster, savedSources, savedVoices;
+  const cancelBtn=document.getElementById('exportProgressCancel');
+  if(cancelBtn)cancelBtn.disabled=false;
+  openExportProgressModal('Export WAV');
   if(status)status.textContent='Rendering…';
   try{
     ensureAudio();
+    setExportProgress(2,'Building offline graph…','Scheduling');
     const base=getBpm(),secPerClick=60/base,len=Math.max(1,songLengthTicks());
     const durationSec=len*secPerClick+0.75;
     const sr=audioCtx.sampleRate||preferredSampleRate||48000;
     const offline=new OfflineAudioContext(2,Math.max(1,Math.ceil(durationSec*sr)),sr);
-    const realCtx=audioCtx, realMaster=masterGain, savedSources=activeSources, savedVoices=channelVoices;
+    realCtx=audioCtx; realMaster=masterGain; savedSources=activeSources; savedVoices=channelVoices;
     audioCtx=offline;
     masterGain=offline.createGain();
     masterGain.gain.value=0.9;
     activeSources=[];
     channelVoices={};
-    // Build full FX graph (per-channel + master) into the offline context
     rebuildFxGraph();
-    // Modulation automation on effect params
     scheduleFxAutomationOffline(secPerClick, len);
-    // Schedule song through normal path (channelDest → FX → master)
     playStartTime=0;
     if(typeof scheduleSongAt==='function')scheduleSongAt(0,base);
     else{
-      // fallback
       for(const s of song){
         const pat=patterns[s.patternId];if(!pat)continue;
         schedulePatternBlocks(pat,s.start*secPerClick,base,s.start);
@@ -6174,18 +6869,34 @@ async function exportWav(){
     }
     const includeBacking=document.getElementById('exportIncludeBacking')?document.getElementById('exportIncludeBacking').checked:true;
     if(includeBacking&&backingBuffer&&typeof scheduleBacking==='function')scheduleBacking(0);
-    const rendered=await offline.startRendering();
+    if(exportCancelFlag)throw new Error('cancelled');
+    setExportProgress(8,'Rendering audio…',durationSec.toFixed(1)+'s target');
+    const rendered=await offlineRenderWithProgress(offline,'Rendering mix…');
     audioCtx=realCtx;masterGain=realMaster;activeSources=savedSources;channelVoices=savedVoices||{};
     try{if(realCtx)rebuildFxGraph()}catch(_){}
+    if(exportCancelFlag)throw new Error('cancelled');
+    setExportProgress(96,'Encoding WAV…','Almost done');
+    await new Promise(r=>setTimeout(r,20));
     const wav=encodeWav(rendered);
     const blob=new Blob([wav],{type:'audio/wav'});
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='muttontone-export.wav';a.click();URL.revokeObjectURL(a.href);
+    setExportProgress(100,'Export complete',durationSec.toFixed(1)+'s');
     if(status)status.textContent='Exported WAV ('+durationSec.toFixed(1)+'s, FX+modulation).';
     logAction('Exported WAV with effects',false);
+    await new Promise(r=>setTimeout(r,350));
   }catch(err){
-    if(status)status.textContent='Export failed: '+err.message;
-    console.error(err);
-    try{if(typeof realCtx!=='undefined'&&realCtx){audioCtx=realCtx;masterGain=realMaster;activeSources=savedSources;rebuildFxGraph()}}catch(_){}
+    const cancelled=exportCancelFlag||(err&&String(err.message||err)==='cancelled');
+    if(cancelled){
+      if(status)status.textContent='Export cancelled';
+      logAction('Export cancelled',false);
+    }else{
+      if(status)status.textContent='Export failed: '+(err&&err.message?err.message:err);
+      console.error(err);
+    }
+    try{if(realCtx){audioCtx=realCtx;masterGain=realMaster;activeSources=savedSources||[];channelVoices=savedVoices||{};rebuildFxGraph()}}catch(_){}
+  }finally{
+    closeExportProgressModal();
+    if(cancelBtn)cancelBtn.disabled=false;
   }
 }
 
@@ -6267,17 +6978,25 @@ document.getElementById('patNew')&&document.getElementById('patNew').addEventLis
 document.getElementById('patNewFromEmpty')&&document.getElementById('patNewFromEmpty').addEventListener('click',createAndOpenPattern);
 document.getElementById('patDup').addEventListener('click',()=>{
   const src=curPat();if(!src)return;
+  pushHistory('Duplicate pattern');
+  ensurePatBoostTracks(src);
   const id=createPattern(src.name+' copy',src.length,src.color);
   const d=patterns[id];
   d.folderId=src.folderId||null;
-  d.blocks=JSON.parse(JSON.stringify(src.blocks));
+  d.blocks=JSON.parse(JSON.stringify(src.blocks||{}));
   d.totalBoost=JSON.parse(JSON.stringify(src.totalBoost||[]));
-  d.boosts=JSON.parse(JSON.stringify(src.boosts||emptyPatBoosts()));
-  d.volumes=JSON.parse(JSON.stringify(src.volumes||{kick:[],clap:[],hat:[],snare:[]}));
-  d.speeds=JSON.parse(JSON.stringify(src.speeds||{kick:[],clap:[],hat:[],snare:[]}));
-  d.lp=JSON.parse(JSON.stringify(src.lp||{kick:[],clap:[],hat:[],snare:[]}));
-  d.hp=JSON.parse(JSON.stringify(src.hp||{kick:[],clap:[],hat:[],snare:[]}));
+  // Boost tracks + their blocks (ids stay the same within this pattern copy)
+  d.boostTracks=JSON.parse(JSON.stringify(src.boostTracks||[]));
+  d.boosts=JSON.parse(JSON.stringify(src.boosts||{}));
+  d._boostMigrated=true;
+  d.volumes=JSON.parse(JSON.stringify(src.volumes||{}));
+  d.speeds=JSON.parse(JSON.stringify(src.speeds||{}));
+  d.lp=JSON.parse(JSON.stringify(src.lp||{}));
+  d.hp=JSON.parse(JSON.stringify(src.hp||{}));
+  ensurePatBlocks(d);
+  ensurePatBoostTracks(d);
   openPattern(id);
+  logAction('Duplicated pattern → '+d.name,false);
 });
 document.getElementById('patDelete').addEventListener('click',async()=>{
   if(!currentPatId||!patterns[currentPatId])return;
@@ -6451,18 +7170,9 @@ document.getElementById('patInner').addEventListener('click',e=>{
   const scroll=document.getElementById('patScroll');
   const tick=snapTick(tickFromClientX(scroll,document.getElementById('patInner'),e.clientX,patPx*patZoom));
   beginOrCompletePlace('pat','pboost:'+trackId,'pboost',tick,row,(start,length)=>{
-    start=Math.max(0,Math.min(start,pat.length-1));
-    length=Math.max(1,Math.min(length,pat.length-start));
-    if(!pat.boosts[trackId])pat.boosts[trackId]=[];
-    pushHistory('Add pattern boost');
-    const mode=(document.getElementById('patBoostMode')||{}).value||'constant';
-    const rateA=Math.max(0,parseFloat(document.getElementById('patBoostRateA')?.value)||1);
-    const rateB=Math.max(0,parseFloat(document.getElementById('patBoostRateB')?.value)||2);
-    const period=Math.max(1,parseFloat(document.getElementById('patBoostPeriod')?.value)||4);
-    pat.boosts[trackId].push({start,length,mode,rateA,rateB,period});
-    pat.boosts[trackId].sort((a,b)=>a.start-b.start);
-    renderPatternTracks();
+    commitPatBoostBlock(trackId,start,length);
   });
+  if(typeof updatePatToolContext==='function')updatePatToolContext();
 });
 
 
@@ -6486,13 +7196,17 @@ function commitPatBlock(inst,start,length){
   let notePc=0, octave=4;
   if(rateMode==='note'){
     notePc=parseInt((document.getElementById('rateNote')||{}).value,10)||0;
-    octave=parseInt((document.getElementById('rateOctave')||{}).value,10)||4;
+    octave=parseOctaveVal((document.getElementById('rateOctave')||{}).value,4);
     rateVal=blockRateMult({rateMode:'note',notePc,octave});
+  }else if(rateMode==='single'){
+    rateVal=0;
   }
+  const rateDenom=Math.max(1,Math.round(parseFloat(document.getElementById('rateDenom')?.value))||1);
   list.push({
     start:fitted.start,
     length:fitted.length,
     rate:rateVal,
+    rateDenom:(rateMode==='note'||rateMode==='single')?1:rateDenom,
     rateMode,
     notePc,
     octave,
@@ -6663,12 +7377,17 @@ document.getElementById('addBoostBtn').addEventListener('click',()=>{
   commitBoostBlock(key,snapTick(end),Math.max(g,8));
 });
 document.getElementById('boostMode').addEventListener('change',()=>{updateBoostModeUI();applyBoostToolsToSelection()});
-document.getElementById('boostRateA').addEventListener('change',applyBoostToolsToSelection);
-document.getElementById('boostRateB').addEventListener('change',applyBoostToolsToSelection);
-document.getElementById('boostPeriod').addEventListener('change',applyBoostToolsToSelection);
-document.getElementById('boostSlewIn').addEventListener('change',applyBoostToolsToSelection);
-document.getElementById('boostSlewOut').addEventListener('change',applyBoostToolsToSelection);
-document.getElementById('addBoostTrackBtn').addEventListener('click',()=>{
+document.getElementById('boostRateA')&&document.getElementById('boostRateA').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('boostRateA')&&document.getElementById('boostRateA').addEventListener('input',applyBoostToolsToSelection);
+document.getElementById('boostDenomA')&&document.getElementById('boostDenomA').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('boostDenomA')&&document.getElementById('boostDenomA').addEventListener('input',applyBoostToolsToSelection);
+document.getElementById('boostRateB')&&document.getElementById('boostRateB').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('boostRateB')&&document.getElementById('boostRateB').addEventListener('input',applyBoostToolsToSelection);
+document.getElementById('boostPeriod')&&document.getElementById('boostPeriod').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('boostTimeQuant')&&document.getElementById('boostTimeQuant').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('boostSlewIn')&&document.getElementById('boostSlewIn').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('boostSlewOut')&&document.getElementById('boostSlewOut').addEventListener('change',()=>{pushHistory('Edit boost');applyBoostToolsToSelection()});
+document.getElementById('addBoostTrackBtn')&&document.getElementById('addBoostTrackBtn').addEventListener('click',()=>{
   const sel=document.getElementById('addBoostTrackKey');
   const key=sel&&sel.value;
   if(!key){openBoostTrackModal('song');return}
@@ -6685,9 +7404,13 @@ document.getElementById('addBoostTrackBtn').addEventListener('click',()=>{
 });
 
 document.getElementById('patBoostMode').addEventListener('change',()=>{updatePatBoostModeUI();applyPatBoostTools()});
-document.getElementById('patBoostRateA').addEventListener('change',applyPatBoostTools);
+document.getElementById('patBoostRateA')&&document.getElementById('patBoostRateA').addEventListener('change',applyPatBoostTools);
+document.getElementById('patBoostRateA')&&document.getElementById('patBoostRateA').addEventListener('input',applyPatBoostTools);
+document.getElementById('patBoostDenomA')&&document.getElementById('patBoostDenomA').addEventListener('change',applyPatBoostTools);
+document.getElementById('patBoostDenomA')&&document.getElementById('patBoostDenomA').addEventListener('input',applyPatBoostTools);
 document.getElementById('patBoostRateB').addEventListener('change',applyPatBoostTools);
-document.getElementById('patBoostPeriod').addEventListener('change',applyPatBoostTools);
+document.getElementById('patBoostPeriod')&&document.getElementById('patBoostPeriod').addEventListener('change',applyPatBoostTools);
+document.getElementById('patBoostTimeQuant')&&document.getElementById('patBoostTimeQuant').addEventListener('change',applyPatBoostTools);
 
 function deleteSelectedSong(){
   if(!selectedSongItems.size)return;
@@ -6718,11 +7441,17 @@ document.getElementById('songClear').addEventListener('click',async()=>{
   songHP={kick:[],clap:[],hat:[],snare:[],backing:[]};
   selectedSongItems.clear();renderSong();updateSongMeta();
 });
-document.getElementById('zoomIn').addEventListener('click',()=>{songZoom=Math.min(4,Math.round((songZoom+0.25)*100)/100);renderSong()});
-document.getElementById('zoomOut').addEventListener('click',()=>{songZoom=Math.max(0.25,Math.round((songZoom-0.25)*100)/100);renderSong()});
+document.getElementById('zoomIn').addEventListener('click',()=>{{const step=songZoom<0.05?0.01:songZoom<0.25?0.02:songZoom<1?0.1:0.25;songZoom=Math.min(4,Math.round((songZoom+step)*100)/100);renderSong()}});
+document.getElementById('zoomOut').addEventListener('click',()=>{{const step=songZoom>1?0.25:songZoom>0.25?0.1:songZoom>0.05?0.02:0.01;songZoom=Math.max(0.01,Math.round((songZoom-step)*100)/100);renderSong()}});
 document.getElementById('saveProject').addEventListener('click',saveProject);
 document.getElementById('loadProject').addEventListener('click',()=>document.getElementById('fileInput').click());
 document.getElementById('fileInput').addEventListener('change',e=>{if(e.target.files[0])loadProject(e.target.files[0]);e.target.value=''});
+document.getElementById('exportProgressCancel')&&document.getElementById('exportProgressCancel').addEventListener('click',()=>{
+  exportCancelFlag=true;
+  setExportProgress(null,'Cancelling…','Will discard when current render finishes');
+  const btn=document.getElementById('exportProgressCancel');
+  if(btn)btn.disabled=true;
+});
 document.getElementById('exportWav').addEventListener('click',exportWav);
 
 window.addEventListener('keydown',e=>{
@@ -6814,16 +7543,27 @@ document.getElementById('exportStems').addEventListener('click',exportStems);
 
 async function exportStems(){
   const status=document.getElementById('exportStatus');
-  if(status)status.textContent='Rendering stems…';
   let realCtx, realMaster, savedSources, savedVoices;
+  const cancelBtn=document.getElementById('exportProgressCancel');
+  if(cancelBtn)cancelBtn.disabled=false;
+  openExportProgressModal('Export stems');
+  if(status)status.textContent='Rendering stems…';
   try{
     ensureAudio();
     const base=getBpm(),secPerClick=60/base,len=Math.max(1,songLengthTicks());
     const durationSec=len*secPerClick+0.75;
     const sr=audioCtx.sampleRate||preferredSampleRate||48000;
     realCtx=audioCtx; realMaster=masterGain; savedSources=activeSources; savedVoices=channelVoices;
-    for(const inst of INSTS){
-      if(status)status.textContent='Rendering stem '+(typeof drumName==='function'?drumName(inst):inst)+'…';
+    const includeBacking=!!(backingBuffer&&document.getElementById('exportIncludeBacking')&&document.getElementById('exportIncludeBacking').checked);
+    const jobs=INSTS.map(inst=>({type:'drum',id:inst,label:(typeof drumName==='function'?drumName(inst):inst)||inst}));
+    if(includeBacking)jobs.push({type:'backing',id:'backing',label:'Backing'});
+    const total=Math.max(1,jobs.length);
+    let done=0;
+    for(const job of jobs){
+      if(exportCancelFlag)throw new Error('cancelled');
+      const basePct=(done/total)*100;
+      setExportProgress(basePct,'Rendering stem: '+job.label, (done+1)+' / '+total);
+      if(status)status.textContent='Rendering stem '+job.label+'…';
       const offline=new OfflineAudioContext(2,Math.max(1,Math.ceil(durationSec*sr)),sr);
       audioCtx=offline;
       masterGain=offline.createGain();masterGain.gain.value=0.9;
@@ -6831,42 +7571,64 @@ async function exportStems(){
       rebuildFxGraph();
       scheduleFxAutomationOffline(secPerClick, len);
       playStartTime=0;
-      for(const ch of INSTS){if(channelInputNodes[ch])channelInputNodes[ch].gain.value=(ch===inst)?1:0}
-      if(channelInputNodes.backing)channelInputNodes.backing.gain.value=0;
-      if(typeof scheduleSongAt==='function')scheduleSongAt(0,base);
-      else{
-        for(const s of song){
-          const pat=patterns[s.patternId];if(!pat)continue;
-          schedulePatternBlocks(pat,s.start*secPerClick,base,s.start);
+      if(job.type==='drum'){
+        for(const ch of INSTS){if(channelInputNodes[ch])channelInputNodes[ch].gain.value=(ch===job.id)?1:0}
+        if(channelInputNodes.backing)channelInputNodes.backing.gain.value=0;
+        if(typeof scheduleSongAt==='function')scheduleSongAt(0,base);
+        else{
+          for(const s of song){
+            const pat=patterns[s.patternId];if(!pat)continue;
+            schedulePatternBlocks(pat,s.start*secPerClick,base,s.start);
+          }
         }
+      }else{
+        for(const ch of INSTS){if(channelInputNodes[ch])channelInputNodes[ch].gain.value=0}
+        if(channelInputNodes.backing)channelInputNodes.backing.gain.value=1;
+        scheduleBacking(0);
       }
+      if(exportCancelFlag)throw new Error('cancelled');
+      // Per-stem progress fills this job's slice of the bar
+      if(exportProgressTimer){clearInterval(exportProgressTimer);exportProgressTimer=null}
+      const start=performance.now();
+      const slice=100/total;
+      exportProgressTimer=setInterval(()=>{
+        if(exportCancelFlag)return;
+        const elapsed=(performance.now()-start)/1000;
+        const local=0.92*(1-Math.exp(-elapsed/Math.max(0.5,durationSec*0.25)));
+        setExportProgress(basePct+local*slice,'Rendering stem: '+job.label,(done+1)+' / '+total);
+      },100);
+      await new Promise(r=>setTimeout(r,30));
       const rendered=await offline.startRendering();
+      if(exportProgressTimer){clearInterval(exportProgressTimer);exportProgressTimer=null}
+      if(exportCancelFlag)throw new Error('cancelled');
+      setExportProgress(basePct+slice*0.96,'Encoding '+job.label+'…',(done+1)+' / '+total);
       const wav=encodeWav(rendered);
       const blob=new Blob([wav],{type:'audio/wav'});
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-      a.download='muttontone-stem-'+((typeof drumName==='function'?drumName(inst):inst)||inst)+'.wav';
+      a.download=job.type==='backing'?'muttontone-stem-backing.wav':('muttontone-stem-'+job.label+'.wav');
       a.click();URL.revokeObjectURL(a.href);
-    }
-    if(backingBuffer&&document.getElementById('exportIncludeBacking')&&document.getElementById('exportIncludeBacking').checked){
-      if(status)status.textContent='Rendering stem Backing…';
-      const offline=new OfflineAudioContext(2,Math.max(1,Math.ceil(durationSec*sr)),sr);
-      audioCtx=offline;masterGain=offline.createGain();masterGain.gain.value=0.9;activeSources=[];channelVoices={};
-      rebuildFxGraph();scheduleFxAutomationOffline(secPerClick, len);
-      for(const ch of INSTS){if(channelInputNodes[ch])channelInputNodes[ch].gain.value=0}
-      if(channelInputNodes.backing)channelInputNodes.backing.gain.value=1;
-      scheduleBacking(0);
-      const rendered=await offline.startRendering();
-      const wav=encodeWav(rendered);
-      const blob=new Blob([wav],{type:'audio/wav'});
-      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='muttontone-stem-backing.wav';a.click();URL.revokeObjectURL(a.href);
+      done++;
+      setExportProgress((done/total)*100,'Finished '+job.label, done+' / '+total);
     }
     audioCtx=realCtx;masterGain=realMaster;activeSources=savedSources;channelVoices=savedVoices||{};
     try{rebuildFxGraph()}catch(_){}
+    setExportProgress(100,'All stems exported','Done');
     if(status)status.textContent='Exported stems (with channel FX + modulation).';
+    logAction('Exported stems',false);
+    await new Promise(r=>setTimeout(r,350));
   }catch(err){
-    if(status)status.textContent='Stem export failed: '+err.message;
-    console.error(err);
-    try{if(realCtx){audioCtx=realCtx;masterGain=realMaster;activeSources=savedSources;rebuildFxGraph()}}catch(_){}
+    const cancelled=exportCancelFlag||(err&&String(err.message||err)==='cancelled');
+    if(cancelled){
+      if(status)status.textContent='Stem export cancelled';
+      logAction('Stem export cancelled',false);
+    }else{
+      if(status)status.textContent='Stem export failed: '+(err&&err.message?err.message:err);
+      console.error(err);
+    }
+    try{if(realCtx){audioCtx=realCtx;masterGain=realMaster;activeSources=savedSources||[];channelVoices=savedVoices||{};rebuildFxGraph()}}catch(_){}
+  }finally{
+    closeExportProgressModal();
+    if(cancelBtn)cancelBtn.disabled=false;
   }
 }
 
@@ -7275,7 +8037,22 @@ try{
   if(migrate[currentTheme])currentTheme=migrate[currentTheme];
   if(!THEMES[currentTheme])currentTheme='blood';
 }catch(_){currentTheme='blood'}
-applyTheme(currentTheme);buildThemeGrid();
+applyTheme(currentTheme);buildThemeGrid();loadBoostColors();buildBoostColorSettings();
+
+document.querySelectorAll('.settings-subtab').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    document.querySelectorAll('.settings-subtab').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    const id=btn.dataset.settingsTab;
+    document.querySelectorAll('.settings-pane').forEach(p=>{
+      p.classList.remove('active');
+      p.style.display='none';
+    });
+    const pane=document.getElementById(id==='appearance'?'settingsPaneAppearance':'settingsPaneSong');
+    if(pane){pane.classList.add('active');pane.style.display='block'}
+  });
+});
+
 updateBoostModeUI();updatePatBoostModeUI();buildHueSwatches();updateSampleRateUI();refreshPatternSelect();updatePatternEditorVisibility();renderPatternLibrary();rebuildDrumTracksDOM();renderDrumsUI();renderPatternTracks();renderSong();updateSongMeta();renderNotes();renderFxUI();
 
 
@@ -7325,7 +8102,7 @@ document.getElementById('addPatBoostBtn')&&document.getElementById('addPatBoostB
   const g=parseInt(document.getElementById('patGridSnap')?.value,10)||1;
   commitPatBoostBlock(trackId,end,Math.max(g,8));
 });
-document.getElementById('patAddBoostTrack2')&&document.getElementById('patAddBoostTrack2').addEventListener('click',()=>{
+document.getElementById('patAddBoostTrack2')&&document.getElementById('patAddBoostTrack2')&&document.getElementById('patAddBoostTrack2').addEventListener('click',()=>{
   const sel=document.getElementById('addPatBoostTrackKey');
   const key=sel&&sel.value;
   if(!key){openBoostTrackModal('pattern');return}
@@ -7361,13 +8138,16 @@ document.getElementById('addDrumBtn')&&document.getElementById('addDrumBtn').add
 function updateBackingBtnUI(){
   const btn=document.getElementById('backingBtn');
   const det=document.getElementById('detectBpmBtn');
+  const detSc=document.getElementById('detectScaleBtn');
   if(!btn)return;
   if(backingBuffer){
     btn.innerHTML='<i class="fa-solid fa-trash"></i> Remove backing';
     if(det)det.style.display='';
+    if(detSc)detSc.style.display='';
   }else{
     btn.innerHTML='<i class="fa-solid fa-music"></i> Add backing';
     if(det)det.style.display='none';
+    if(detSc)detSc.style.display='none';
   }
   const bl=document.getElementById('backingLabel');
   if(bl)bl.textContent=backingName?('Backing · '+backingName):'Backing';
